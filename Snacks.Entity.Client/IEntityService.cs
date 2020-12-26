@@ -5,10 +5,20 @@ using System.Threading.Tasks;
 
 namespace Snacks.Entity.Client
 {
-    public interface IEntityService<TModel> where TModel : IEntityModel
+    public interface IEntityService
     {
-        Task<TModel> GetOneAsync(object key);
-        Task<IList<TModel>> GetManyAsync(params string[] queryParams);
+        Task<IEntityModel> GetOneAsync(object key);
+        Task<IList<IEntityModel>> GetManyAsync(params string[] queryParams);
+        Task<IEntityModel> CreateOneAsync(IEntityModel model);
+        Task<IList<IEntityModel>> CreateManyAsync(IList<IEntityModel> models);
+        Task UpdateOneAsync(IEntityModel model);
+        Task DeleteOneAsync(IEntityModel model);
+    }
+
+    public interface IEntityService<TModel> : IEntityService where TModel : IEntityModel
+    {
+        new Task<TModel> GetOneAsync(object key);
+        new Task<IList<TModel>> GetManyAsync(params string[] queryParams);
         Task<TModel> CreateOneAsync(TModel model);
         Task<IList<TModel>> CreateManyAsync(IList<TModel> models);
         Task UpdateOneAsync(TModel model);

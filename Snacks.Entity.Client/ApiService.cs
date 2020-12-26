@@ -1,7 +1,10 @@
-﻿using Newtonsoft.Json;
+﻿using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
 using Snacks.Entity.Client.Extensions;
 using System;
+using System.Linq.Expressions;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -11,122 +14,108 @@ namespace Snacks.Entity.Client
     {
         private readonly HttpClient _httpClient;
 
-        public ApiService(string baseUri, TimeSpan? timeout = null) : this(new Uri(baseUri), timeout)
+        public ApiService(IOptions<ApiOptions> options)
         {
-        }
+            ApiOptions apiOptions = options.Value;
 
-        public ApiService(Uri baseUri, TimeSpan? timeout = null)
-        {
-            _httpClient = new HttpClient
+            if (apiOptions.HttpClient != null)
             {
-                BaseAddress = baseUri
-            };
-
-            if (timeout.HasValue)
-            {
-                _httpClient.Timeout = timeout.Value;
+                _httpClient = apiOptions.HttpClient;
             }
+            else
+            {
+                _httpClient = new HttpClient();
+            }
+
+            if (apiOptions.BaseAddress != null)
+            {
+                _httpClient.BaseAddress = apiOptions.BaseAddress;
+            }
+
+            _httpClient.Timeout = apiOptions.RequestTimeout;
         }
 
-        public ApiService(HttpClient httpClient)
+        public void SetHeaders(Action<HttpRequestHeaders> headers)
         {
-            _httpClient = httpClient;
+            headers.Invoke(_httpClient.DefaultRequestHeaders);
         }
 
-        public async Task<TResponse> DeleteAsync<TResponse>(string uri)
+        public async Task<TResponse> DeleteAsync<TResponse>(string route)
         {
-            return await DeleteAsync<TResponse>(new Uri(uri));
-        }
+            HttpResponseMessage message = await DeleteAsync(route);
 
-        public async Task<TResponse> DeleteAsync<TResponse>(Uri uri)
-        {
-            HttpResponseMessage message = await DeleteAsync(uri);
+            message.EnsureSuccessStatusCode();
 
             return await message.ToObjectAsync<TResponse>();
         }
 
-        public async Task<HttpResponseMessage> DeleteAsync(string uri)
+        public async Task<HttpResponseMessage> DeleteAsync(string route)
         {
-            return await DeleteAsync(new Uri(uri));
-        }
-
-        public async Task<HttpResponseMessage> DeleteAsync(Uri uri)
-        {
-            HttpResponseMessage message = await _httpClient.DeleteAsync(uri);
+            HttpResponseMessage message = await _httpClient.DeleteAsync(route);
 
             return message;
         }
 
-        public async Task<TResponse> GetAsync<TResponse>(string uri)
+        public async Task<TResponse> GetAsync<TResponse>(string route)
         {
-            return await GetAsync<TResponse>(new Uri(uri));
-        }
+            HttpResponseMessage message = await GetAsync(route);
 
-        public async Task<TResponse> GetAsync<TResponse>(Uri uri)
-        {
-            HttpResponseMessage message = await GetAsync(uri);
+            message.EnsureSuccessStatusCode();
 
             return await message.ToObjectAsync<TResponse>();
         }
 
-        public async Task<HttpResponseMessage> GetAsync(string uri)
+        public async Task<HttpResponseMessage> GetAsync(string route)
         {
-            return await GetAsync(new Uri(uri));
-        }
-
-        public async Task<HttpResponseMessage> GetAsync(Uri uri)
-        {
-            HttpResponseMessage message = await _httpClient.GetAsync(uri);
+            HttpResponseMessage message = await _httpClient.GetAsync(route);
 
             return message;
         }
 
-        public async Task<TResponse> PostAsync<TResponse>(string uri, object body)
+        public async Task<TResponse> PatchAsync<TResponse>(string route, object body)
         {
-            return await PostAsync<TResponse>(new Uri(uri), body);
-        }
-
-        public async Task<TResponse> PostAsync<TResponse>(Uri uri, object body)
-        {
-            HttpResponseMessage message = await PostAsync(uri, body);
+            HttpResponseMessage message = await PatchAsync(route, body);
 
             return await message.ToObjectAsync<TResponse>();
         }
 
-        public async Task<HttpResponseMessage> PostAsync(string uri, object body)
+        public async Task<HttpResponseMessage> PatchAsync(string route, object body)
         {
-            return await PostAsync(new Uri(uri), body);
-        }
-
-        public async Task<HttpResponseMessage> PostAsync(Uri uri, object body)
-        {
-            HttpResponseMessage message = await _httpClient.PostAsync(uri,
-               GetContentFromObject(body));
+            HttpResponseMessage message = await _httpClient.PatchAsync(route, GetJSONFromObject(body));
 
             return message;
         }
 
-        public async Task<TResponse> PutAsync<TResponse>(string uri, object body)
+        public async Task<TResponse> PostAsync<TResponse>(string route, object body)
         {
-            return await PutAsync<TResponse>(new Uri(uri), body);
-        }
+            HttpResponseMessage message = await PostAsync(route, body);
 
-        public async Task<TResponse> PutAsync<TResponse>(Uri uri, object body)
-        {
-            HttpResponseMessage message = await PutAsync(uri, body);
+            message.EnsureSuccessStatusCode();
 
             return await message.ToObjectAsync<TResponse>();
         }
 
-        public async Task<HttpResponseMessage> PutAsync(string uri, object body)
+        public async Task<HttpResponseMessage> PostAsync(string route, object body)
         {
-            return await PutAsync(new Uri(uri), body);
+            HttpResponseMessage message = await _httpClient.PostAsync(route,
+               GetJSONFromObject(body));
+
+            return message;
         }
 
-        public async Task<HttpResponseMessage> PutAsync(Uri uri, object body)
+        public async Task<TResponse> PutAsync<TResponse>(string route, object body)
         {
-            HttpResponseMessage message = await _httpClient.PutAsync(uri,
-                GetContentFromObject(body));
+            HttpResponseMessage message = await PutAsync(route, body);
+
+            message.EnsureSuccessStatusCode();
+
+            return await message.ToObjectAsync<TResponse>();
+        }
+
+        public async Task<HttpResponseMessage> PutAsync(string route, object body)
+        {
+            HttpResponseMessage message = await _httpClient.PutAsync(route,
+                GetJSONFromObject(body));
 
             return message;
         }
@@ -136,7 +125,7 @@ namespace Snacks.Entity.Client
             return await _httpClient.SendAsync(request);
         }
 
-        private StringContent GetContentFromObject(object @object)
+        private StringContent GetJSONFromObject(object @object)
         {
             return new StringContent(
                 JsonConvert.SerializeObject(@object),

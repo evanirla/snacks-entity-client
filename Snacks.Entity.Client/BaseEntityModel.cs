@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Snacks.Entity.Client.Attributes;
 using System.Linq;
 using System.Reflection;
 
